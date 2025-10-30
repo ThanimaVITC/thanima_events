@@ -14,9 +14,7 @@ export default async function ApplyPage({ params, searchParams }: { params: Prom
 
   async function action(formData: FormData) {
     'use server';
-    console.log('[apply/[eventId]/page] submit action start', { eventId });
     const res = await submitParticipant(eventId, formData);
-    console.log('[apply/[eventId]/page] submit action result', res);
     if (!res.success) {
       redirect(`/apply/${eventId}?error=1`);
     }
