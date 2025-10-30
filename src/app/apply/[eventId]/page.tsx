@@ -33,8 +33,8 @@ export default async function ApplyPage({ params, searchParams }: { params: Prom
           </CardHeader>
           <CardContent>
             <RegistrationToast showError={Boolean(qp.error)} />
-            {event.isTeamBased && event.teamSize > 1 ? (
-              <TeamRegistrationForm action={action} teamSize={event.teamSize} />
+            {event.isTeamBased && ((event.minTeamSize ?? event.teamSize) > 1 || (event.maxTeamSize ?? event.teamSize) > 1) ? (
+              <TeamRegistrationForm action={action} minTeamSize={Number(event.minTeamSize ?? event.teamSize ?? 1)} maxTeamSize={Number(event.maxTeamSize ?? event.teamSize ?? 1)} />
             ) : (
               <IndividualRegistrationForm action={action} />
             )}

@@ -29,7 +29,8 @@ export async function createEvent(formData: FormData): Promise<{ success: boolea
       coordinators,
       whatsappLink: raw.whatsappLink,
       isTeamBased: String(raw.isTeamBased) === 'true' || String(raw.isTeamBased) === 'on',
-      teamSize: Number(raw.teamSize ?? 1),
+      minTeamSize: Number(raw.minTeamSize ?? (String(raw.isTeamBased) === 'true' || String(raw.isTeamBased) === 'on' ? 2 : 1)),
+      maxTeamSize: Number(raw.maxTeamSize ?? (String(raw.isTeamBased) === 'true' || String(raw.isTeamBased) === 'on' ? 2 : 1)),
     });
     if (!parsed.success) {
       console.error(parsed.error.flatten());
@@ -61,7 +62,9 @@ export async function listEvents(): Promise<EventDocument[]> {
       coordinators: data.coordinators || [],
       whatsappLink: data.whatsappLink,
       isTeamBased: Boolean(data.isTeamBased),
-      teamSize: Number(data.teamSize ?? 1),
+      // Backward compatibility: support old teamSize by mapping to min/max when present
+      minTeamSize: Number((data as any).minTeamSize ?? (data as any).teamSize ?? 1),
+      maxTeamSize: Number((data as any).maxTeamSize ?? (data as any).teamSize ?? 1),
       createdAt: (data.createdAt?.toDate?.() || new Date()).toISOString(),
     } satisfies EventDocument;
   });

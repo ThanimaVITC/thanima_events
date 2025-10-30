@@ -21,16 +21,29 @@ export const eventSchema = z
       .max(3, 'Maximum 3 coordinators allowed'),
     whatsappLink: z.string().url('Valid WhatsApp group link required'),
     isTeamBased: z.boolean().default(false),
-    teamSize: z
-      .number({ invalid_type_error: 'Team size must be a number' })
-      .int('Team size must be an integer')
-      .min(1, 'Team size must be at least 1')
-      .max(20, 'Team size too large')
+    minTeamSize: z
+      .number({ invalid_type_error: 'Min team size must be a number' })
+      .int('Min team size must be an integer')
+      .min(1, 'Min team size must be at least 1')
+      .max(50, 'Min team size too large')
+      .default(1),
+    maxTeamSize: z
+      .number({ invalid_type_error: 'Max team size must be a number' })
+      .int('Max team size must be an integer')
+      .min(1, 'Max team size must be at least 1')
+      .max(50, 'Max team size too large')
       .default(1),
   })
-  .refine((data) => (data.isTeamBased ? data.teamSize >= 2 : data.teamSize === 1), {
+  .refine((data) => {
+    if (!data.isTeamBased) {
+      return data.minTeamSize === 1 && data.maxTeamSize === 1;
+    }
+    if (data.minTeamSize < 2) return false;
+    if (data.maxTeamSize < data.minTeamSize) return false;
+    return true;
+  }, {
     message: 'Invalid team configuration',
-    path: ['teamSize'],
+    path: ['maxTeamSize'],
   });
 
 export type EventInput = z.infer<typeof eventSchema>;

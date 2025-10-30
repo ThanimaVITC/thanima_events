@@ -22,12 +22,15 @@ export async function submitParticipant(eventId: string, formData: FormData): Pr
 
     let payload: any = {};
 
-    if (event.isTeamBased && event.teamSize > 1) {
+    const minTeam = Number((event as any).minTeamSize ?? (event as any).teamSize ?? 1);
+    const maxTeam = Number((event as any).maxTeamSize ?? (event as any).teamSize ?? 1);
+
+    if (event.isTeamBased && maxTeam > 1) {
       const teamMembersCount = Number(raw.__team_members_count || 0);
       if (!raw.teamName || String(raw.teamName).trim().length < 2) {
         return { success: false, error: 'Team name is required' };
       }
-      if (Number.isNaN(teamMembersCount) || teamMembersCount < 1 || teamMembersCount > event.teamSize) {
+      if (Number.isNaN(teamMembersCount) || teamMembersCount < Math.max(1, minTeam) || teamMembersCount > Math.max(minTeam, maxTeam)) {
         return { success: false, error: 'Invalid number of team members' };
       }
       

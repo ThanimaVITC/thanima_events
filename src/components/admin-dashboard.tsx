@@ -26,7 +26,8 @@ export function AdminDashboard({ onLogout }: { onLogout: () => Promise<void> }) 
     whatsappLink: '',
     coordinators: [{ name: '', phone: '' }],
     isTeamBased: false,
-    teamSize: 1,
+    minTeamSize: 1,
+    maxTeamSize: 1,
   });
 
   useEffect(() => {
@@ -62,12 +63,13 @@ export function AdminDashboard({ onLogout }: { onLogout: () => Promise<void> }) 
       fd.append('whatsappLink', form.whatsappLink);
       fd.append('coordinators', JSON.stringify(form.coordinators));
       fd.append('isTeamBased', String(form.isTeamBased));
-      fd.append('teamSize', String(form.teamSize || 1));
+      fd.append('minTeamSize', String(form.minTeamSize || 1));
+      fd.append('maxTeamSize', String(form.maxTeamSize || 1));
       const res = await createEvent(fd);
       if (!res.success) throw new Error(res.error);
       const data = await listEvents();
       setEvents(data);
-      setForm({ title: '', description: '', eventDate: '', whatsappLink: '', coordinators: [{ name: '', phone: '' }], isTeamBased: false, teamSize: 1 });
+      setForm({ title: '', description: '', eventDate: '', whatsappLink: '', coordinators: [{ name: '', phone: '' }], isTeamBased: false, minTeamSize: 1, maxTeamSize: 1 });
       toast({ title: 'Event created' });
     } catch (e: any) {
       toast({ title: 'Failed', description: e?.message || 'Could not create event', variant: 'destructive' });
@@ -177,13 +179,23 @@ export function AdminDashboard({ onLogout }: { onLogout: () => Promise<void> }) 
                     <div className="grid gap-2">
                       <Label>Team based?</Label>
                       <div className="flex items-center gap-2">
-                        <input id="isTeamBased" type="checkbox" checked={form.isTeamBased} onChange={(e) => setForm({ ...form, isTeamBased: e.target.checked, teamSize: e.target.checked ? Math.max(2, form.teamSize) : 1 })} />
+                        <input id="isTeamBased" type="checkbox" checked={form.isTeamBased} onChange={(e) => setForm({ ...form, isTeamBased: e.target.checked, minTeamSize: e.target.checked ? Math.max(2, form.minTeamSize) : 1, maxTeamSize: e.target.checked ? Math.max(2, form.maxTeamSize, form.minTeamSize) : 1 })} />
                         <Label htmlFor="isTeamBased">Enable team registration</Label>
                       </div>
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="teamSize">Team size</Label>
-                      <Input id="teamSize" type="number" min={form.isTeamBased ? 2 : 1} max={20} value={form.teamSize} onChange={(e) => setForm({ ...form, teamSize: Number(e.target.value || 1) })} disabled={!form.isTeamBased} />
+                      <Label htmlFor="minTeamSize">Min team size</Label>
+                      <Input id="minTeamSize" type="number" min={form.isTeamBased ? 2 : 1} max={50} value={form.minTeamSize} onChange={(e) => {
+                        const v = Number(e.target.value || 1);
+                        setForm({ ...form, minTeamSize: v, maxTeamSize: Math.max(v, form.maxTeamSize) });
+                      }} disabled={!form.isTeamBased} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="maxTeamSize">Max team size</Label>
+                      <Input id="maxTeamSize" type="number" min={form.isTeamBased ? Math.max(2, form.minTeamSize) : 1} max={50} value={form.maxTeamSize} onChange={(e) => {
+                        const v = Number(e.target.value || 1);
+                        setForm({ ...form, maxTeamSize: Math.max(v, form.minTeamSize) });
+                      }} disabled={!form.isTeamBased} />
                     </div>
                   </div>
                   <Separator />

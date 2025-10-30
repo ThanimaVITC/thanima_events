@@ -8,18 +8,22 @@ import { CardDescription, CardTitle } from '@/components/ui/card';
 
 export function TeamRegistrationForm({ 
   action, 
-  teamSize 
+  minTeamSize,
+  maxTeamSize,
 }: { 
   action: (formData: FormData) => void; 
-  teamSize: number;
+  minTeamSize: number;
+  maxTeamSize: number;
 }) {
-  const [memberCount, setMemberCount] = useState(Math.min(teamSize, Math.max(1, teamSize)));
+  const minC = Math.max(1, minTeamSize);
+  const maxC = Math.max(minC, maxTeamSize);
+  const [memberCount, setMemberCount] = useState(minC);
 
   const addMember = () => {
-    setMemberCount((c) => Math.min(teamSize, c + 1));
+    setMemberCount((c) => Math.min(maxC, c + 1));
   };
   const removeMember = () => {
-    setMemberCount((c) => Math.max(1, c - 1));
+    setMemberCount((c) => Math.max(minC, c - 1));
   };
 
   return (
@@ -32,7 +36,7 @@ export function TeamRegistrationForm({
 
       <CardTitle className="text-lg mt-2">Team Members</CardTitle>
       <CardDescription>
-        Add all team members (including the leader). Maximum {teamSize} members allowed.
+        Add all team members (including the leader).
       </CardDescription>
 
       {/* All Team Members */}
@@ -66,10 +70,10 @@ export function TeamRegistrationForm({
 
       {/* Add/Remove Member Controls */}
       <div className="flex gap-2">
-        <Button type="button" onClick={addMember} disabled={memberCount >= teamSize}>
+        <Button type="button" onClick={addMember} disabled={memberCount >= maxC}>
           Add member
         </Button>
-        <Button type="button" variant="secondary" onClick={removeMember} disabled={memberCount <= 1}>
+        <Button type="button" variant="secondary" onClick={removeMember} disabled={memberCount <= minC}>
           Remove last
         </Button>
       </div>
