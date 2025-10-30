@@ -2,6 +2,7 @@ import { getEventById } from '@/app/apply/actions';
 import { notFound } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { CopyToClipboard } from '@/components/copy-to-clipboard';
 import Link from 'next/link';
 
 export default async function SuccessPage({ params }: { params: Promise<{ eventId: string }> }) {
@@ -17,12 +18,16 @@ export default async function SuccessPage({ params }: { params: Promise<{ eventI
             <CardTitle className="font-headline text-2xl">You're in!</CardTitle>
             <CardDescription>Join the WhatsApp group for {event.title}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col items-center gap-3">
             <Button asChild size="lg" className="button-glow interactive-element">
               <Link href={event.whatsappLink} target="_blank" rel="noopener noreferrer">
                 Join WhatsApp Group
               </Link>
             </Button>
+            <div className="flex items-center gap-2 w-full max-w-md">
+              <input readOnly className="flex-1 px-3 py-2 rounded-md bg-background border" value={event.whatsappLink} />
+              <CopyToClipboard text={event.whatsappLink} label="Copy" />
+            </div>
           </CardContent>
         </Card>
       </div>

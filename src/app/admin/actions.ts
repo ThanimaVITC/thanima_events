@@ -28,8 +28,11 @@ export async function createEvent(formData: FormData): Promise<{ success: boolea
       eventDate: raw.eventDate,
       coordinators,
       whatsappLink: raw.whatsappLink,
+      isTeamBased: String(raw.isTeamBased) === 'true' || String(raw.isTeamBased) === 'on',
+      teamSize: Number(raw.teamSize ?? 1),
     });
     if (!parsed.success) {
+      console.error(parsed.error.flatten());
       return { success: false, error: 'Invalid event data' };
     }
 
@@ -57,6 +60,8 @@ export async function listEvents(): Promise<EventDocument[]> {
       eventDate: data.eventDate,
       coordinators: data.coordinators || [],
       whatsappLink: data.whatsappLink,
+      isTeamBased: Boolean(data.isTeamBased),
+      teamSize: Number(data.teamSize ?? 1),
       createdAt: (data.createdAt?.toDate?.() || new Date()).toISOString(),
     } satisfies EventDocument;
   });
@@ -71,4 +76,50 @@ export async function deleteEvent(eventId: string): Promise<{ success: boolean; 
     console.error(e);
     return { success: false, error: 'Failed to delete event' };
   }
+}
+
+export type ParticipantRow = {
+  teamName: string;
+  memberName: string;
+  memberEmail: string;
+  memberPhone: string;
+  memberRegNo?: string;
+  isTeamRegistration: boolean;
+  entryId: string;
+};
+
+export async function listParticipants(eventId: string): Promise<ParticipantRow[]> {
+  await verifyAuth();
+  const q = query(collection(db, 'events', eventId, 'participants'));
+  const snap = await getDocs(q);
+  const rows: ParticipantRow[] = [];
+  snap.forEach((d) => {
+    const data = d.data() as any;
+    if (data.isTeamRegistration) {
+      const teamName = String(data.teamName || '');
+      const members = Array.isArray(data.teamMembers) ? data.teamMembers : [];
+      for (const m of members) {
+        rows.push({
+          teamName,
+          memberName: String(m.name || ''),
+          memberEmail: String(m.email || ''),
+          memberPhone: String(m.phone || ''),
+          memberRegNo: m.regNo || undefined,
+          isTeamRegistration: true,
+          entryId: d.id,
+        });
+      }
+    } else {
+      rows.push({
+        teamName: '',
+        memberName: String(data.name || ''),
+        memberEmail: String(data.email || ''),
+        memberPhone: String(data.phone || ''),
+        memberRegNo: data.regNo || undefined,
+        isTeamRegistration: false,
+        entryId: d.id,
+      });
+    }
+  });
+  return rows;
 }

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Trash2, Plus, LogOut } from 'lucide-react';
-import { createEvent, deleteEvent, listEvents } from '@/app/admin/actions';
+import { createEvent, deleteEvent, listEvents, listParticipants, type ParticipantRow } from '@/app/admin/actions';
 import type { EventDocument } from '@/app/events.schema';
 
 export function AdminDashboard({ onLogout }: { onLogout: () => Promise<void> }) {
@@ -17,12 +17,16 @@ export function AdminDashboard({ onLogout }: { onLogout: () => Promise<void> }) 
   const [events, setEvents] = useState<EventDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [participantsByEvent, setParticipantsByEvent] = useState<Record<string, ParticipantRow[]>>({});
+  const [participantsLoading, setParticipantsLoading] = useState<Record<string, boolean>>({});
   const [form, setForm] = useState({
     title: '',
     description: '',
     eventDate: '',
     whatsappLink: '',
     coordinators: [{ name: '', phone: '' }],
+    isTeamBased: false,
+    teamSize: 1,
   });
 
   useEffect(() => {
@@ -57,11 +61,13 @@ export function AdminDashboard({ onLogout }: { onLogout: () => Promise<void> }) 
       fd.append('eventDate', form.eventDate);
       fd.append('whatsappLink', form.whatsappLink);
       fd.append('coordinators', JSON.stringify(form.coordinators));
+      fd.append('isTeamBased', String(form.isTeamBased));
+      fd.append('teamSize', String(form.teamSize || 1));
       const res = await createEvent(fd);
       if (!res.success) throw new Error(res.error);
       const data = await listEvents();
       setEvents(data);
-      setForm({ title: '', description: '', eventDate: '', whatsappLink: '', coordinators: [{ name: '', phone: '' }] });
+      setForm({ title: '', description: '', eventDate: '', whatsappLink: '', coordinators: [{ name: '', phone: '' }], isTeamBased: false, teamSize: 1 });
       toast({ title: 'Event created' });
     } catch (e: any) {
       toast({ title: 'Failed', description: e?.message || 'Could not create event', variant: 'destructive' });
@@ -80,6 +86,53 @@ export function AdminDashboard({ onLogout }: { onLogout: () => Promise<void> }) 
     } catch (e: any) {
       toast({ title: 'Failed', description: e?.message || 'Could not delete event', variant: 'destructive' });
     }
+  };
+
+  const viewParticipants = async (eventId: string) => {
+    setParticipantsLoading((s) => ({ ...s, [eventId]: true }));
+    try {
+      const rows = await listParticipants(eventId);
+      setParticipantsByEvent((prev) => ({ ...prev, [eventId]: rows }));
+    } catch (e: any) {
+      toast({ title: 'Failed', description: e?.message || 'Could not load participants', variant: 'destructive' });
+    } finally {
+      setParticipantsLoading((s) => ({ ...s, [eventId]: false }));
+    }
+  };
+
+  const toCsv = (rows: ParticipantRow[]) => {
+    const headers = ['Team Name', 'Member Name', 'Registration Number', 'Email', 'Phone'];
+    const esc = (v: any) => {
+      const s = String(v ?? '');
+      if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    };
+    const lines = [headers.join(',')];
+    for (const r of rows) {
+      lines.push([
+        esc(r.teamName),
+        esc(r.memberName),
+        esc(r.memberRegNo || ''),
+        esc(r.memberEmail),
+        esc(r.memberPhone),
+      ].join(','));
+    }
+    return lines.join('\n');
+  };
+
+  const downloadCsv = (eventId: string, eventTitle: string) => {
+    const rows = participantsByEvent[eventId] || [];
+    const csv = toCsv(rows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const fileTitle = eventTitle.replace(/[^a-z0-9-_]+/gi, '_');
+    a.download = `${fileTitle}_participants.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -117,6 +170,21 @@ export function AdminDashboard({ onLogout }: { onLogout: () => Promise<void> }) 
                   <div className="grid gap-2">
                     <Label htmlFor="wa">WhatsApp group link</Label>
                     <Input id="wa" placeholder="https://chat.whatsapp.com/..." value={form.whatsappLink} onChange={(e) => setForm({ ...form, whatsappLink: e.target.value })} />
+                  </div>
+                  <Separator />
+                  <CardTitle className="text-lg">Registration Type</CardTitle>
+                  <div className="grid gap-4 sm:grid-cols-2 items-end">
+                    <div className="grid gap-2">
+                      <Label>Team based?</Label>
+                      <div className="flex items-center gap-2">
+                        <input id="isTeamBased" type="checkbox" checked={form.isTeamBased} onChange={(e) => setForm({ ...form, isTeamBased: e.target.checked, teamSize: e.target.checked ? Math.max(2, form.teamSize) : 1 })} />
+                        <Label htmlFor="isTeamBased">Enable team registration</Label>
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="teamSize">Team size</Label>
+                      <Input id="teamSize" type="number" min={form.isTeamBased ? 2 : 1} max={20} value={form.teamSize} onChange={(e) => setForm({ ...form, teamSize: Number(e.target.value || 1) })} disabled={!form.isTeamBased} />
+                    </div>
                   </div>
                   <Separator />
                   <CardTitle className="text-lg">Coordinators</CardTitle>
@@ -176,12 +244,45 @@ export function AdminDashboard({ onLogout }: { onLogout: () => Promise<void> }) 
                             <p className="text-sm text-muted-foreground">{new Date(ev.eventDate).toLocaleString()}</p>
                           </div>
                           <div className="flex gap-2">
-                            <Button variant="destructive" onClick={() => handleDelete(ev.id)}>
-                              <Trash2 className="h-4 w-4" />
+                            <Button variant="outline" onClick={() => viewParticipants(ev.id)} disabled={participantsLoading[ev.id]}>
+                              {participantsLoading[ev.id] ? 'Loading…' : 'View participants'}
+                            </Button>
+                            <Button variant="secondary" onClick={() => downloadCsv(ev.id, ev.title)} disabled={!participantsByEvent[ev.id]?.length}>
+                              Download Excel
                             </Button>
                           </div>
                         </div>
                         <p className="mt-2 text-sm">{ev.description}</p>
+                        {participantsByEvent[ev.id] && (
+                          <div className="mt-4 overflow-x-auto">
+                            {participantsByEvent[ev.id].length === 0 ? (
+                              <p className="text-sm text-muted-foreground">No participants yet.</p>
+                            ) : (
+                              <table className="w-full text-sm border">
+                                <thead>
+                                  <tr className="bg-muted">
+                                    <th className="text-left p-2 border">Team Name</th>
+                                    <th className="text-left p-2 border">Member Name</th>
+                                    <th className="text-left p-2 border">Reg No</th>
+                                    <th className="text-left p-2 border">Email</th>
+                                    <th className="text-left p-2 border">Phone</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {participantsByEvent[ev.id].map((r, i) => (
+                                    <tr key={r.entryId + '_' + i}>
+                                      <td className="p-2 border">{r.teamName}</td>
+                                      <td className="p-2 border">{r.memberName}</td>
+                                      <td className="p-2 border">{r.memberRegNo || ''}</td>
+                                      <td className="p-2 border">{r.memberEmail}</td>
+                                      <td className="p-2 border">{r.memberPhone}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
