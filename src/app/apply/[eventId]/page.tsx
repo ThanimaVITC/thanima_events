@@ -41,7 +41,7 @@ export default async function ApplyPage({ params, searchParams }: { params: Prom
                 <Input id="regNo" name="regNo" required/>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">VIT Email</Label>
                 <Input id="email" name="email" type="email" required />
               </div>
               <div className="grid gap-2">
